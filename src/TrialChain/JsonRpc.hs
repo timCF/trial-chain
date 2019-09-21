@@ -1,16 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module TrialChain.JsonRpc (apply) where
+import           Control.Monad.Trans    (liftIO)
 import           Data.ByteString.Lazy
 import           Network.JsonRpc.Server
 
-apply :: ByteString -> IO (Maybe ByteString)
-apply = call methods
+apply :: ByteString -> (Integer -> IO ()) -> IO (Maybe ByteString)
+apply req newTrx = call (methods newTrx) req
 
-methods :: [Method IO]
-methods = [add]
+methods :: (Integer -> IO ()) -> [Method IO]
+methods newTrx = [add newTrx]
 
-add :: Method IO
-add = toMethod "add" f (Required "x" :+: Required "y" :+: ())
+add :: (Integer -> IO ()) -> Method IO
+add newTrx = toMethod "add" f (Required "x" :+: Required "y" :+: ())
     where f :: Integer -> Integer -> RpcResult IO Integer
-          f x y = return (x + y)
+          f x y = do
+            let res = x + y
+            liftIO $ newTrx res
+            return res

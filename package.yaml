@@ -25,6 +25,9 @@ dependencies:
 - bytestring
 - mtl
 - json-rpc-server
+- distributed-process
+- distributed-process-p2p
+- cmdargs
 
 library:
   source-dirs: src
