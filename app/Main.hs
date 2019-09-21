@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Main (main) where
 import           Control.Monad.Trans (liftIO)
 import qualified TrialChain.JsonRpc  as JsonRpc
 import           Web.Scotty
