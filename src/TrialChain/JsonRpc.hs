@@ -4,17 +4,15 @@ module TrialChain.JsonRpc (apply) where
 import           Control.Monad.Trans    (liftIO)
 import           Data.ByteString.Lazy
 import           Network.JsonRpc.Server
+import           TrialChain.Node        (NodeApi (..))
 
-apply :: ByteString -> (Integer -> IO ()) -> IO (Maybe Integer) -> IO (Maybe ByteString)
-apply req newTrx getter = call (methods newTrx getter) req
+apply :: ByteString -> NodeApi -> IO (Maybe ByteString)
+apply req nodeApi = call (methods nodeApi) req
 
-methods :: (Integer -> IO ()) -> IO (Maybe Integer) -> [Method IO]
-methods newTrx getter = [add newTrx getter]
+methods :: NodeApi -> [Method IO]
+methods nodeApi = [add $ broadcastTrx nodeApi]
 
-add :: (Integer -> IO ()) -> IO (Maybe Integer) -> Method IO
-add newTrx getter = toMethod "add" f (Required "x" :+: Required "y" :+: ())
+add :: (Integer -> IO Integer) -> Method IO
+add apiMethod = toMethod "add" f (Required "x" :+: Required "y" :+: ())
     where f :: Integer -> Integer -> RpcResult IO Integer
-          f x y = do
-            liftIO $ newTrx $ x + y
-            Just res <- liftIO getter
-            return res
+          f x y = liftIO $ apiMethod $ x + y

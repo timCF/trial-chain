@@ -2,10 +2,9 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Main (main) where
-import           Control.Concurrent.MVar
 import           Control.Distributed.Backend.P2P  (bootstrapNonBlocking,
                                                    makeNodeId)
-import           Control.Distributed.Process.Node (initRemoteTable, runProcess)
+import           Control.Distributed.Process.Node (initRemoteTable)
 import           Control.Monad.Trans              (liftIO)
 import           System.Console.CmdArgs
 import qualified TrialChain.JsonRpc               as JsonRpc
@@ -36,17 +35,11 @@ main = do
     (makeNodeId <$> knownNode config)
     Node.start
 
-  --
-  -- TODO : properly generate node API data instance
-  --
   scotty (webPort config) $
     post "/" $ do
+      nodeApi <- liftIO $ Node.mkNodeApi node
       req <- body
-      mvar <- liftIO $ newMVar Nothing
-      let setter it = swapMVar mvar (Just it)
-      let getter = takeMVar mvar
-      let newTrx = runProcess node . Node.newTrx setter
-      res <- liftIO $ JsonRpc.apply req newTrx getter
+      res <- liftIO $ JsonRpc.apply req nodeApi
       case res of
         Just it -> do
           setHeader "Content-Type" "application/json"
