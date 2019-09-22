@@ -6,6 +6,7 @@ import           Control.Distributed.Backend.P2P  (bootstrapNonBlocking,
                                                    makeNodeId)
 import           Control.Distributed.Process.Node (initRemoteTable)
 import           Control.Monad.Trans              (liftIO)
+import           Prelude
 import           System.Console.CmdArgs
 import qualified TrialChain.JsonRpc               as JsonRpc
 import qualified TrialChain.Node                  as Node
@@ -15,7 +16,7 @@ data BootConfig = BootConfig {
   webPort   :: Int,
   nodePort  :: Int,
   knownNode :: [String]
-} deriving (Show, Data, Typeable)
+} deriving (Show, Data)
 
 main :: IO ()
 main = do
@@ -37,8 +38,8 @@ main = do
 
   scotty (webPort config) $
     post "/" $ do
-      nodeApi <- liftIO $ Node.mkNodeApi node
       req <- body
+      nodeApi <- liftIO $ Node.mkNodeApi node
       res <- liftIO $ JsonRpc.apply req nodeApi
       case res of
         Just it -> do
