@@ -14,18 +14,18 @@ methods :: NodeApi -> [Method IO]
 methods nodeApi =
   (\x -> x nodeApi) <$>
   [
-    add . broadcastTrx,
-    echo . echoMsg
+    add,
+    echo
   ]
 
-add :: (Integer -> IO Integer) -> Method IO
-add apiMethod = toMethod "add" f (Required "x" :+: Required "y" :+: ())
+add :: NodeApi -> Method IO
+add nodeApi = toMethod "add" f (Required "x" :+: Required "y" :+: ())
   where
     f :: Integer -> Integer -> RpcResult IO Integer
-    f x y = liftIO $ apiMethod $ x + y
+    f x y = liftIO $ broadcastTrx nodeApi $ x + y
 
-echo :: (String -> IO String) -> Method IO
-echo apiMethod = toMethod "echo" f (Required "x" :+: ())
+echo :: NodeApi -> Method IO
+echo nodeApi = toMethod "echo" f (Required "x" :+: ())
   where
     f :: String -> RpcResult IO String
-    f x = liftIO $ apiMethod x
+    f x = liftIO $ echoMsg nodeApi x
