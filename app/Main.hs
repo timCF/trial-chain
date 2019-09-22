@@ -39,8 +39,7 @@ main = do
   scotty (webPort config) $
     post "/" $ do
       req <- body
-      nodeApi <- liftIO $ Node.mkNodeApi node
-      res <- liftIO $ JsonRpc.apply req nodeApi
+      res <- liftIO $ JsonRpc.apply req (Node.mkNodeApi node)
       case res of
         Just it -> do
           setHeader "Content-Type" "application/json"

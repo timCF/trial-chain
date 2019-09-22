@@ -1,6 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module TrialChain.Node (start, mkNodeApi, NodeApi(..)) where
 import           Control.Concurrent.MVar                    (newMVar, swapMVar,
@@ -9,6 +8,7 @@ import qualified Control.Distributed.Backend.P2P            as P2P
 import           Control.Distributed.Process
 import           Control.Distributed.Process.Internal.Types (LocalNode)
 import           Control.Distributed.Process.Node           (runProcess)
+import           Control.Monad                              (void)
 import           Data.Binary                                (Binary)
 import           GHC.Generics                               (Generic)
 import           Prelude
@@ -17,10 +17,10 @@ data Msg = NewTrx Integer | EchoMsg String deriving (Generic)
 instance Binary Msg
 
 start :: Process ()
-start = getSelfPid >>= register alias >> loop []
+start = getSelfPid >>= register pidAlias >> loop []
 
-alias :: String
-alias = "TrialChain.Node"
+pidAlias :: String
+pidAlias = "TrialChain.Node"
 
 loop :: [Integer] -> Process ()
 loop state = receiveWait [match handleMsg ]
@@ -34,50 +34,39 @@ loop state = receiveWait [match handleMsg ]
       say x
       loop state
 
---
---  TODO : fix code duplication
---
-
-newTrx :: (Integer -> IO (Maybe Integer)) -> Integer -> Process ()
-newTrx setter it = do
-  P2P.nsendPeers alias (NewTrx it)
-  _ <- liftIO $ setter it
-  return ()
-
-echoMsgFun :: (String -> IO (Maybe String)) -> String -> Process ()
-echoMsgFun setter it = do
-  P2P.nsendPeers alias (EchoMsg it)
-  _ <- liftIO $ setter it
-  return ()
-
 data NodeApi = NodeApi{
   broadcastTrx :: Integer -> IO Integer,
   echoMsg      :: String -> IO String
 }
 
-mkNodeApi :: LocalNode -> IO NodeApi
-mkNodeApi node = do
-  let broadcastTrxApi it = do
-        mvar <- newMVar Nothing
-        let setter this = swapMVar mvar (Just this)
-        let getter = takeMVar mvar
-        runProcess node (newTrx setter it)
-        --
-        --  TODO : fix unsafe code here
-        --
-        Just x <- getter
-        return x
-  let echoMsgApi it = do
-        mvar <- newMVar Nothing
-        let setter this = swapMVar mvar (Just this)
-        let getter = takeMVar mvar
-        runProcess node (echoMsgFun setter it)
-        --
-        --  TODO : fix unsafe code here
-        --
-        Just x <- getter
-        return x
-  return NodeApi{
-    broadcastTrx = broadcastTrxApi,
-    echoMsg = echoMsgApi
+mkNodeApi :: LocalNode -> NodeApi
+mkNodeApi node = NodeApi{
+    broadcastTrx = mkMethod NewTrx,
+    echoMsg = mkMethod EchoMsg
   }
+  where
+    mkMethod :: (a -> Msg) -> (a -> IO a)
+    mkMethod mapper it = do
+      (setter, getter) <- mkSetterGetter
+      runProcess node (processFun it setter mapper)
+      --
+      --  TODO : fix unsafe code here
+      --
+      Just x <- getter
+      return x
+
+type Setter a = a -> IO ()
+type Getter a = IO (Maybe a)
+
+mkSetterGetter :: IO (Setter a, Getter a)
+mkSetterGetter = do
+  mvar <- newMVar Nothing
+  let setter this = void $ swapMVar mvar (Just this)
+  let getter = takeMVar mvar
+  return (setter, getter)
+
+processFun :: a -> Setter a -> (a -> Msg) -> Process ()
+processFun it setter mapper = do
+  P2P.nsendPeers pidAlias (mapper it)
+  _ <- liftIO $ setter it
+  return ()
