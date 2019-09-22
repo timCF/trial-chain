@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Main (main) where
+import           Control.Concurrent.MVar
 import           Control.Distributed.Backend.P2P  (bootstrapNonBlocking,
                                                    makeNodeId)
 import           Control.Distributed.Process.Node (initRemoteTable, runProcess)
@@ -38,12 +39,14 @@ main = do
   --
   -- TODO : properly generate node API data instance
   --
-
-  let newTrx = runProcess node . Node.newTrx
   scotty (webPort config) $
     post "/" $ do
       req <- body
-      res <- liftIO $ JsonRpc.apply req newTrx
+      mvar <- liftIO $ newMVar Nothing
+      let setter it = swapMVar mvar (Just it)
+      let getter = takeMVar mvar
+      let newTrx = runProcess node . Node.newTrx setter
+      res <- liftIO $ JsonRpc.apply req newTrx getter
       case res of
         Just it -> do
           setHeader "Content-Type" "application/json"

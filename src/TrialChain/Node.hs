@@ -10,8 +10,11 @@ start = getSelfPid >>= register alias >> loop []
 alias :: String
 alias = "TrialChain.Node"
 
-newTrx :: Integer -> Process ()
-newTrx = P2P.nsendPeers alias
+newTrx :: (Integer -> IO (Maybe Integer)) -> Integer -> Process ()
+newTrx setter it = do
+  P2P.nsendPeers alias it
+  liftIO $ setter it
+  return ()
 
 loop :: [Integer] -> Process ()
 loop state =
