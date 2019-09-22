@@ -35,8 +35,8 @@ loop state = receiveWait [match handleMsg ]
       loop state
 
 data NodeApi = NodeApi{
-  broadcastTrx :: Integer -> IO Integer,
-  echoMsg      :: String -> IO String
+  broadcastTrx :: Integer -> IO (Maybe Integer),
+  echoMsg      :: String -> IO (Maybe String)
 }
 
 mkNodeApi :: LocalNode -> NodeApi
@@ -45,15 +45,11 @@ mkNodeApi node = NodeApi{
     echoMsg = mkMethod EchoMsg
   }
   where
-    mkMethod :: (a -> Msg) -> (a -> IO a)
+    mkMethod :: (a -> Msg) -> (a -> IO (Maybe a))
     mkMethod mapper it = do
       (setter, getter) <- mkSetterGetter
       runProcess node (processFun it setter mapper)
-      --
-      --  TODO : fix unsafe code here
-      --
-      Just x <- getter
-      return x
+      getter
 
 type Setter a = a -> IO ()
 type Getter a = IO (Maybe a)
