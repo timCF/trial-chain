@@ -9,11 +9,11 @@ import           Data.Maybe
 import           Data.Monoid
 import           Prelude
 
-data UnhashedTrx = UnhashedTrx{
-    unhashedTrxSource      :: Maybe PubKey,
-    unhashedTrxDestination :: PubKey,
-    unhashedTrxAmount      :: Integer,
-    unhashedTrxUnixTime    :: Integer
+data UnsignedTrx = UnsignedTrx{
+    unsignedTrxSource      :: Maybe PubKey,
+    unsignedTrxDestination :: PubKey,
+    unsignedTrxAmount      :: Integer,
+    unsignedTrxUnixTime    :: Integer
   }
 
 data Transaction = Transaction{
@@ -25,29 +25,29 @@ data Transaction = Transaction{
     transactionSignature   :: Sig
   }
 
-mkTransaction :: UnhashedTrx -> SecKey -> Maybe Transaction
-mkTransaction UnhashedTrx{
-                unhashedTrxSource,
-                unhashedTrxDestination,
-                unhashedTrxAmount,
-                unhashedTrxUnixTime
+mkTransaction :: UnsignedTrx -> SecKey -> Maybe Transaction
+mkTransaction UnsignedTrx{
+                unsignedTrxSource,
+                unsignedTrxDestination,
+                unsignedTrxAmount,
+                unsignedTrxUnixTime
               }
               privKey =
   trxBuilder <$> maybeHash
   where
     trxBuilder :: Msg -> Transaction
     trxBuilder justHash = Transaction{
-        transactionSource      = unhashedTrxSource,
-        transactionDestination = unhashedTrxDestination,
-        transactionAmount      = unhashedTrxAmount,
-        transactionUnixTime    = unhashedTrxUnixTime,
+        transactionSource      = unsignedTrxSource,
+        transactionDestination = unsignedTrxDestination,
+        transactionAmount      = unsignedTrxAmount,
+        transactionUnixTime    = unsignedTrxUnixTime,
         transactionHash        = justHash,
         transactionSignature   = signMsg privKey justHash
       }
     maybeHash :: Maybe Msg
     maybeHash = msg . hash . mconcat $ [
-        maybe "" (exportPubKey True) unhashedTrxSource,
-        exportPubKey True unhashedTrxDestination,
-        pack $ show unhashedTrxAmount,
-        pack $ show unhashedTrxUnixTime
+        maybe "" (exportPubKey True) unsignedTrxSource,
+        exportPubKey True unsignedTrxDestination,
+        pack $ show unsignedTrxAmount,
+        pack $ show unsignedTrxUnixTime
       ]
