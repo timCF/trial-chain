@@ -15,12 +15,16 @@ methods :: NodeApi -> [Method IO]
 methods nodeApi =
   (\x -> x nodeApi) <$>
   [
-    add,
+    broadcastTrxMethod,
     echo
   ]
 
-add :: NodeApi -> Method IO
-add nodeApi = toMethod "add" f (Required "x" :+: Required "y" :+: ())
+broadcastTrxMethod :: NodeApi -> Method IO
+broadcastTrxMethod nodeApi =
+  toMethod
+    "blockchain.transaction.broadcast"
+    f
+    (Required "inputs" :+: Required "outputs" :+: ())
   where
     f :: Integer -> Integer -> RpcResult IO Integer
     f x y = liftIO (broadcastTrx nodeApi $ x + y) >>= unwrapRes
