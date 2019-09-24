@@ -1,4 +1,10 @@
-module TrialChain.Trx where
+module TrialChain.Trx
+  ( mkP2PTrx
+  , mkRewardTrx
+  , getTrxHash
+  , CommonTrx(..)
+  , Trx
+  ) where
 
 import Crypto.Hash.SHA256
 import Crypto.Secp256k1
@@ -52,3 +58,7 @@ mkRewardTrx commonTrx =
       , pack $ show (commonTrxAmount commonTrx)
       , pack $ show (commonTrxUnixTime commonTrx)
       ]
+
+getTrxHash :: Trx -> ByteString
+getTrxHash P2PTrx {p2pTrxHash = x} = getMsg x
+getTrxHash RewardTrx {rewardTrxHash = x} = x
