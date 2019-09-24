@@ -1,12 +1,12 @@
 module TrialChain.Block where
 import           Data.ByteString
 import           Prelude
-import           TrialChain.Transaction
+import           TrialChain.Trx
 
 data Block = Block{
-    blockPrevHash     :: ByteString,
-    blockUnixTime     :: Integer,
-    blockTransactions :: [Transaction],
-    blockNonce        :: Integer,
-    blockHash         :: ByteString
+    blockPrevHash :: ByteString,
+    blockUnixTime :: Integer,
+    blockTrxs     :: [Trx],
+    blockNonce    :: Integer,
+    blockHash     :: ByteString
   }
