@@ -1,19 +1,27 @@
-{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module TrialChain.Node (start, mkNodeApi, NodeApi(..)) where
-import           Control.Concurrent.MVar                    (newMVar, swapMVar,
-                                                             takeMVar)
-import qualified Control.Distributed.Backend.P2P            as P2P
-import           Control.Distributed.Process
-import           Control.Distributed.Process.Internal.Types (LocalNode)
-import           Control.Distributed.Process.Node           (runProcess)
-import           Control.Monad                              (void)
-import           Data.Binary                                (Binary)
-import           GHC.Generics                               (Generic)
-import           Prelude
+module TrialChain.Node
+  ( start
+  , mkNodeApi
+  , NodeApi(..)
+  ) where
 
-data Msg = NewTrx Integer | EchoMsg String deriving (Generic)
+import Control.Concurrent.MVar (newMVar, swapMVar, takeMVar)
+import qualified Control.Distributed.Backend.P2P as P2P
+import Control.Distributed.Process
+import Control.Distributed.Process.Internal.Types (LocalNode)
+import Control.Distributed.Process.Node (runProcess)
+import Control.Monad (void)
+import Data.Binary (Binary)
+import GHC.Generics (Generic)
+import Prelude
+
+data Msg
+  = NewTrx Integer
+  | EchoMsg String
+  deriving (Generic)
+
 instance Binary Msg
 
 start :: Process ()
@@ -23,27 +31,24 @@ pidAlias :: String
 pidAlias = "TrialChain.Node"
 
 loop :: [Integer] -> Process ()
-loop state = receiveWait [match handleMsg ]
+loop state = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
     handleMsg (NewTrx x) = do
-      let newState = x:state
+      let newState = x : state
       say $ show newState
       loop newState
     handleMsg (EchoMsg x) = do
       say x
       loop state
 
-data NodeApi = NodeApi{
-  broadcastTrx :: Integer -> IO (Maybe Integer),
-  echoMsg      :: String -> IO (Maybe String)
-}
+data NodeApi = NodeApi
+  { broadcastTrx :: Integer -> IO (Maybe Integer)
+  , echoMsg :: String -> IO (Maybe String)
+  }
 
 mkNodeApi :: LocalNode -> NodeApi
-mkNodeApi node = NodeApi{
-    broadcastTrx = mkMethod NewTrx,
-    echoMsg = mkMethod EchoMsg
-  }
+mkNodeApi node = NodeApi {broadcastTrx = mkMethod NewTrx, echoMsg = mkMethod EchoMsg}
   where
     mkMethod :: (a -> Msg) -> (a -> IO (Maybe a))
     mkMethod mapper it = do
@@ -52,6 +57,7 @@ mkNodeApi node = NodeApi{
       getter
 
 type Setter a = a -> IO ()
+
 type Getter a = IO (Maybe a)
 
 mkSetterGetter :: IO (Setter a, Getter a)

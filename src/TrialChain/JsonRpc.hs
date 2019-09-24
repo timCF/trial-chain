@@ -1,23 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TrialChain.JsonRpc (apply) where
-import           Control.Monad.Except   (throwError)
-import           Control.Monad.Trans    (liftIO)
-import           Data.ByteString.Lazy
-import           Network.JsonRpc.Server
-import           Prelude
-import           TrialChain.Node        (NodeApi (..))
+module TrialChain.JsonRpc
+  ( apply
+  ) where
+
+import Control.Monad.Except (throwError)
+import Control.Monad.Trans (liftIO)
+import Data.ByteString.Lazy
+import Network.JsonRpc.Server
+import Prelude
+import TrialChain.Node (NodeApi(..))
 
 apply :: ByteString -> NodeApi -> IO (Maybe ByteString)
 apply req nodeApi = call (methods nodeApi) req
 
 methods :: NodeApi -> [Method IO]
-methods nodeApi =
-  (\x -> x nodeApi) <$>
-  [
-    broadcastTrxMethod,
-    echo
-  ]
+methods nodeApi = (\x -> x nodeApi) <$> [broadcastTrxMethod, echo]
 
 broadcastTrxMethod :: NodeApi -> Method IO
 broadcastTrxMethod nodeApi =
@@ -37,4 +35,4 @@ echo nodeApi = toMethod "echo" f (Required "x" :+: ())
 
 unwrapRes :: Maybe a -> RpcResult IO a
 unwrapRes (Just it) = return it
-unwrapRes Nothing   = throwError $ rpcError (-32603) "internal error"
+unwrapRes Nothing = throwError $ rpcError (-32603) "internal error"
