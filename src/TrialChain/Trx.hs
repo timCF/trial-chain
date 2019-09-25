@@ -28,7 +28,7 @@ data Trx
               , rewardTrxHash :: ByteString }
 
 mkP2PTrx :: CommonTrx -> PubKey -> SecKey -> Maybe Trx
-mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> mhash
+mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
   where
     builder :: Msg -> Trx
     builder justHash =
@@ -38,8 +38,8 @@ mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> mhash
         , p2pTrxHash = justHash
         , p2pTrxSignature = signMsg sourceSecKey justHash
         }
-    mhash :: Maybe Msg
-    mhash =
+    maybeHash :: Maybe Msg
+    maybeHash =
       msg . hash . mconcat $
       [ exportPubKey True (commonTrxDestination commonTrx)
       , pack $ show (commonTrxAmount commonTrx)

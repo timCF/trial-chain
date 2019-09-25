@@ -19,8 +19,8 @@ data Block = Block
   , blockHash :: ByteString
   }
 
-mine :: Integer -> CommonBlock -> Either CommonBlock Block
-mine difficulty commonBlock = work oldNonce
+mineBlock :: Integer -> CommonBlock -> Either CommonBlock Block
+mineBlock difficulty commonBlock = work oldNonce
   where
     work :: Integer -> Either CommonBlock Block
     work newNonce
@@ -39,7 +39,7 @@ mine difficulty commonBlock = work oldNonce
     oldNonce :: Integer
     oldNonce = blockNonce commonBlock
     nonceLimit :: Integer
-    nonceLimit = oldNonce + 1000
+    nonceLimit = oldNonce + 10000
     desiredPrefix :: ByteString
     desiredPrefix = replicate (fromInteger difficulty) 48
     bytes2hash :: ByteString
