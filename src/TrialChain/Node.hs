@@ -18,18 +18,25 @@ import Data.Binary (Binary)
 import GHC.Generics (Generic)
 import Prelude
 
-data Msg
+data MsgData
   = NewTrx Integer
   | EchoMsg String
   | Mine
   deriving (Generic)
+
+instance Binary MsgData
+
+data Msg = Msg
+  { msgSource :: ProcessId
+  , msgData :: MsgData
+  } deriving (Generic)
 
 instance Binary Msg
 
 start :: PubKey -> Process ()
 start _ = do
   self <- getSelfPid
-  send self Mine
+  send self Msg {msgSource = self, msgData = Mine}
   register pidAlias self
   loop []
 
@@ -40,19 +47,19 @@ loop :: [Integer] -> Process ()
 loop state = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
-    handleMsg (NewTrx x) = do
+    handleMsg Msg {msgData = (NewTrx x)} = do
       let newState = x : state
       say $ show newState
       loop newState
-    handleMsg (EchoMsg x) = do
+    handleMsg Msg {msgData = (EchoMsg x)} = do
       say x
       loop state
     --
     --  TODO : Fix!!! Other nodes can send this message and DDOS this node mailbox
     --
-    handleMsg Mine = do
+    handleMsg Msg {msgData = Mine} = do
       self <- getSelfPid
-      send self Mine
+      send self Msg {msgData = Mine, msgSource = self}
       -- say "ARBEITEN!!!"
       loop state
 
@@ -61,13 +68,16 @@ data NodeApi = NodeApi
   , echoMsg :: String -> IO (Maybe String)
   }
 
-mkNodeApi :: LocalNode -> NodeApi
-mkNodeApi node = NodeApi {broadcastTrx = mkMethod NewTrx, echoMsg = mkMethod EchoMsg}
+mkNodeApi :: LocalNode -> ProcessId -> NodeApi
+mkNodeApi node processId =
+  NodeApi {broadcastTrx = mkMethod NewTrx, echoMsg = mkMethod EchoMsg}
   where
-    mkMethod :: (a -> Msg) -> (a -> IO (Maybe a))
+    mkMethod :: (a -> MsgData) -> (a -> IO (Maybe a))
     mkMethod mapper it = do
       (setter, getter) <- mkSetterGetter
-      runProcess node (processFun it setter mapper)
+      runProcess
+        node
+        (processFun it setter (\x -> Msg {msgData = mapper x, msgSource = processId}))
       getter
 
 type Setter a = a -> IO ()

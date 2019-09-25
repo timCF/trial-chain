@@ -42,8 +42,8 @@ mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
     maybeHash =
       msg . hash . mconcat $
       [ exportPubKey True (commonTrxDestination commonTrx)
-      , read $ show (commonTrxAmount commonTrx)
-      , read $ show (commonTrxUnixTime commonTrx)
+      , pack $ show (commonTrxAmount commonTrx)
+      , pack $ show (commonTrxUnixTime commonTrx)
       , exportPubKey True sourcePubKey
       ]
 
@@ -55,8 +55,8 @@ mkRewardTrx commonTrx =
     justHash =
       hash . mconcat $
       [ exportPubKey True (commonTrxDestination commonTrx)
-      , read $ show (commonTrxAmount commonTrx)
-      , read $ show (commonTrxUnixTime commonTrx)
+      , pack $ show (commonTrxAmount commonTrx)
+      , pack $ show (commonTrxUnixTime commonTrx)
       ]
 
 getTrxHash :: Trx -> ByteString

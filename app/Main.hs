@@ -9,7 +9,10 @@ import Control.Distributed.Backend.P2P (bootstrapNonBlocking, makeNodeId)
 import Control.Distributed.Process.Node (initRemoteTable)
 import Control.Monad.Trans (liftIO)
 import Crypto.Secp256k1
+import qualified Data.ByteString.Base16 as Hex
+import Data.ByteString.Char8
 import Data.Maybe
+import Data.Monoid
 import Prelude
 import System.Console.CmdArgs
 import qualified TrialChain.JsonRpc as JsonRpc
@@ -18,6 +21,7 @@ import Web.Scotty
 
 data BootConfig = BootConfig
   { webPort :: Int
+  , webHost :: String
   , rewardAddress :: Maybe String
   , nodePort :: Int
   , knownNode :: [String]
@@ -26,13 +30,18 @@ data BootConfig = BootConfig
 main :: IO ()
 main = do
   config <-
-    cmdArgs $
+    cmdArgs $!
     BootConfig
-      {webPort = 3000, nodePort = 4000, knownNode = [], rewardAddress = Nothing} &=
+      { webPort = 3000
+      , webHost = "127.0.0.1"
+      , nodePort = 4000
+      , knownNode = []
+      , rewardAddress = Nothing
+      } &=
     summary "TrialChain v0.1.0.0"
-  let rewardDestination = parseRewardAddress $ rewardAddress config
-  let host = "127.0.0.1"
-  (node, _) <-
+  let !rewardDestination = parseRewardAddress $ rewardAddress config
+  let host = webHost config
+  (node, processId) <-
     bootstrapNonBlocking
       host
       (show $ nodePort config)
@@ -43,7 +52,7 @@ main = do
   scotty (webPort config) $
     post "/" $ do
       req <- body
-      res <- liftIO $ JsonRpc.apply req (Node.mkNodeApi node)
+      res <- liftIO $ JsonRpc.apply req (Node.mkNodeApi node processId)
       case res of
         Just it -> do
           setHeader "Content-Type" "application/json"
@@ -56,8 +65,16 @@ main = do
 --
 parseRewardAddress :: Maybe String -> PubKey
 parseRewardAddress Nothing =
-  error "--rewardaddress (HEX-encoded secp256k1 public key) argument is missing"
+  error "argument --rewardaddress (HEX-encoded secp256k1 public key) is missing"
 parseRewardAddress (Just rawRewardAddress) =
-  fromMaybe
-    (error "--rewardaddress (HEX-encoded secp256k1 public key) argument is invalid")
-    (importPubKey $ read rawRewardAddress)
+  case Hex.decode $ pack rawRewardAddress of
+    (validHex, "") ->
+      fromMaybe
+        (error "argument --rewardaddress (HEX-encoded secp256k1 public key) is invalid")
+        (importPubKey validHex)
+    (_, invalidHex) ->
+      error $
+      unpack $
+      "argument --rewardaddress (HEX-encoded secp256k1 public key) contains invalid chunk '" <>
+      invalidHex <>
+      "'"
