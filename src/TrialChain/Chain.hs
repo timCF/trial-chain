@@ -15,6 +15,17 @@ data Chain = Chain
   , chainNonce :: Integer
   }
 
+mkChain :: PubKey -> Chain
+mkChain rewardDestination =
+  Chain
+    { chainBlocks = []
+    , chainDifficulty = 4
+    , chainPendingTrxs = []
+    , chainRewardAmount = 20
+    , chainRewardDestination = rewardDestination
+    , chainNonce = 0
+    }
+
 mineChain :: Integer -> Chain -> Either Chain Block
 mineChain unixTime chain =
   case mineBlock (chainDifficulty chain) commonBlock of

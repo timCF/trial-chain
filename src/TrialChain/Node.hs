@@ -20,12 +20,17 @@ import Prelude
 data Msg
   = NewTrx Integer
   | EchoMsg String
+  | Mine
   deriving (Generic)
 
 instance Binary Msg
 
 start :: Process ()
-start = getSelfPid >>= register pidAlias >> loop []
+start = do
+  self <- getSelfPid
+  send self Mine
+  register pidAlias self
+  loop []
 
 pidAlias :: String
 pidAlias = "TrialChain.Node"
@@ -40,6 +45,14 @@ loop state = receiveWait [match handleMsg]
       loop newState
     handleMsg (EchoMsg x) = do
       say x
+      loop state
+    --
+    --  TODO : Fix!!! Other nodes can send this message and DDOS this node mailbox
+    --
+    handleMsg Mine = do
+      self <- getSelfPid
+      send self Mine
+      say "ARBEITEN!!!"
       loop state
 
 data NodeApi = NodeApi
