@@ -35,7 +35,7 @@ mineBlock difficulty commonBlock = work oldNonce
           else work $ newNonce + 1
       where
         newHash :: ByteString
-        newHash = hash $ pack (show newNonce) <> bytes2hash
+        newHash = hash $ read (show newNonce) <> bytes2hash
     oldNonce :: Integer
     oldNonce = blockNonce commonBlock
     nonceLimit :: Integer
@@ -46,6 +46,6 @@ mineBlock difficulty commonBlock = work oldNonce
     bytes2hash =
       mconcat
         [ blockPrevHash commonBlock
-        , pack $ show (blockUnixTime commonBlock)
+        , read $ show (blockUnixTime commonBlock)
         , mconcat $ getTrxHash <$> blockTrxs commonBlock
         ]

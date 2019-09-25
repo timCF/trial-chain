@@ -13,6 +13,7 @@ import Control.Distributed.Process
 import Control.Distributed.Process.Internal.Types (LocalNode)
 import Control.Distributed.Process.Node (runProcess)
 import Control.Monad (void)
+import Crypto.Secp256k1 hiding (Msg)
 import Data.Binary (Binary)
 import GHC.Generics (Generic)
 import Prelude
@@ -25,8 +26,8 @@ data Msg
 
 instance Binary Msg
 
-start :: Process ()
-start = do
+start :: PubKey -> Process ()
+start _ = do
   self <- getSelfPid
   send self Mine
   register pidAlias self
@@ -52,7 +53,7 @@ loop state = receiveWait [match handleMsg]
     handleMsg Mine = do
       self <- getSelfPid
       send self Mine
-      say "ARBEITEN!!!"
+      -- say "ARBEITEN!!!"
       loop state
 
 data NodeApi = NodeApi
