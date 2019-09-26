@@ -32,6 +32,7 @@ dependencies:
 - secp256k1-legacy
 - cryptohash-sha256
 - base16-bytestring
+- time
 
 library:
   source-dirs: src

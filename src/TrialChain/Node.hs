@@ -15,8 +15,14 @@ import Control.Distributed.Process.Node (runProcess)
 import Control.Monad (void)
 import Crypto.Secp256k1 hiding (Msg)
 import Data.Binary (Binary)
+import qualified Data.ByteString.Base16 as Hex
+import Data.ByteString.Char8 hiding (putStrLn)
+import Data.Monoid
+import Data.Time.Clock.POSIX
 import GHC.Generics (Generic)
 import Prelude
+import TrialChain.Block
+import TrialChain.Chain
 
 data MsgData
   = NewTrx Integer
@@ -34,34 +40,62 @@ data Msg = Msg
 instance Binary Msg
 
 start :: PubKey -> Process ()
-start _ = do
+start rewardDestination = do
   self <- getSelfPid
   send self Msg {msgSource = self, msgData = Mine}
   register pidAlias self
-  loop []
+  loop $ mkChain rewardDestination
 
 pidAlias :: String
 pidAlias = "TrialChain.Node"
 
-loop :: [Integer] -> Process ()
-loop state = receiveWait [match handleMsg]
+loop :: Chain -> Process ()
+loop chain = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
-    handleMsg Msg {msgData = (NewTrx x)} = do
-      let newState = x : state
-      say $ show newState
-      loop newState
-    handleMsg Msg {msgData = (EchoMsg x)} = do
-      say x
-      loop state
-    --
-    --  TODO : Fix!!! Other nodes can send this message and DDOS this node mailbox
-    --
-    handleMsg Msg {msgData = Mine} = do
-      self <- getSelfPid
-      send self Msg {msgData = Mine, msgSource = self}
-      -- say "ARBEITEN!!!"
-      loop state
+    handleMsg Msg {msgData = (NewTrx x), msgSource = sourcePid} =
+      serveOther
+        sourcePid
+        chain
+        (\_ -> do
+           say $ show x
+           loop chain)
+    handleMsg Msg {msgData = (EchoMsg x), msgSource = sourcePid} =
+      serveOther
+        sourcePid
+        chain
+        (\_ -> do
+           say x
+           loop chain)
+    handleMsg Msg {msgData = Mine, msgSource = sourcePid} =
+      serveSelf
+        sourcePid
+        chain
+        (\self -> do
+           send self Msg {msgData = Mine, msgSource = self}
+           unixTime <- liftIO $ round <$> getPOSIXTime
+           case mineChain unixTime chain of
+             Left newChain -> do
+               liftIO . putStrLn $ "new nonce = " <> show (chainNonce newChain)
+               loop newChain
+             Right newBlock -> do
+               liftIO . putStrLn $
+                 "new block = " <> unpack (Hex.encode $ blockHash newBlock)
+               loop chain {chainBlocks = newBlock : chainBlocks chain})
+
+serveSelf :: ProcessId -> Chain -> (ProcessId -> Process ()) -> Process ()
+serveSelf sourcePid chain work = do
+  self <- getSelfPid
+  if sourcePid == self
+    then work self
+    else loop chain
+
+serveOther :: ProcessId -> Chain -> (ProcessId -> Process ()) -> Process ()
+serveOther sourcePid chain work = do
+  self <- getSelfPid
+  if sourcePid /= self
+    then work self
+    else loop chain
 
 data NodeApi = NodeApi
   { broadcastTrx :: Integer -> IO (Maybe Integer)

@@ -19,7 +19,7 @@ mkChain :: PubKey -> Chain
 mkChain rewardDestination =
   Chain
     { chainBlocks = []
-    , chainDifficulty = 4
+    , chainDifficulty = 3
     , chainPendingTrxs = []
     , chainRewardAmount = 20
     , chainRewardDestination = rewardDestination

@@ -39,9 +39,9 @@ mineBlock difficulty commonBlock = work oldNonce
     oldNonce :: Integer
     oldNonce = blockNonce commonBlock
     nonceLimit :: Integer
-    nonceLimit = oldNonce + 10000
+    nonceLimit = oldNonce + 999999
     desiredPrefix :: ByteString
-    desiredPrefix = replicate (fromInteger difficulty) 48
+    desiredPrefix = replicate (fromInteger difficulty) 0
     bytes2hash :: ByteString
     bytes2hash =
       mconcat
