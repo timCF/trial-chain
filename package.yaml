@@ -33,6 +33,7 @@ dependencies:
 - cryptohash-sha256
 - base16-bytestring
 - time
+- uuid
 
 library:
   source-dirs: src

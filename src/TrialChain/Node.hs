@@ -19,6 +19,8 @@ import qualified Data.ByteString.Base16 as Hex
 import Data.ByteString.Char8 hiding (putStrLn)
 import Data.Monoid
 import Data.Time.Clock.POSIX
+import Data.UUID
+import Data.UUID.V4
 import GHC.Generics (Generic)
 import Prelude
 import TrialChain.Block
@@ -33,69 +35,82 @@ data MsgData
 instance Binary MsgData
 
 data Msg = Msg
-  { msgSource :: ProcessId
+  { msgSender :: ProcessId
   , msgData :: MsgData
+  , msgSenderUuid :: Maybe UUID
   } deriving (Generic)
 
 instance Binary Msg
 
+data State = State
+  { stateUuid :: UUID
+  , stateChain :: Chain
+  , stateSelfPid :: ProcessId
+  }
+
 start :: PubKey -> Process ()
 start rewardDestination = do
   self <- getSelfPid
-  send self Msg {msgSource = self, msgData = Mine}
+  uuid <- liftIO nextRandom
+  send self Msg {msgSender = self, msgData = Mine, msgSenderUuid = Just uuid}
   register pidAlias self
-  loop $ mkChain rewardDestination
+  loop
+    State
+      {stateUuid = uuid, stateSelfPid = self, stateChain = mkChain rewardDestination}
 
 pidAlias :: String
 pidAlias = "TrialChain.Node"
 
-loop :: Chain -> Process ()
-loop chain = receiveWait [match handleMsg]
+loop :: State -> Process ()
+loop state = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
-    handleMsg Msg {msgData = (NewTrx x), msgSource = sourcePid} =
-      serveOther
-        sourcePid
-        chain
-        (\_ -> do
-           say $ show x
-           loop chain)
-    handleMsg Msg {msgData = (EchoMsg x), msgSource = sourcePid} =
-      serveOther
-        sourcePid
-        chain
-        (\_ -> do
-           say x
-           loop chain)
-    handleMsg Msg {msgData = Mine, msgSource = sourcePid} =
-      serveSelf
-        sourcePid
-        chain
-        (\self -> do
-           send self Msg {msgData = Mine, msgSource = self}
-           unixTime <- liftIO $ round <$> getPOSIXTime
-           case mineChain unixTime chain of
-             Left newChain -> do
-               liftIO . putStrLn $ "new nonce = " <> show (chainNonce newChain)
-               loop newChain
-             Right newBlock -> do
-               liftIO . putStrLn $
-                 "new block = " <> unpack (Hex.encode $ blockHash newBlock)
-               loop chain {chainBlocks = newBlock : chainBlocks chain})
+    handleMsg Msg {msgData = (NewTrx x), msgSender = senderPid} =
+      serveOther senderPid Nothing state (handleMsgNewTrx x)
+    handleMsg Msg {msgData = (EchoMsg x), msgSender = senderPid} =
+      serveOther senderPid Nothing state (handleMsgEchoMsg x)
+    handleMsg Msg {msgData = Mine, msgSender = senderPid, msgSenderUuid = senderUuid} =
+      serveSelf senderPid senderUuid state handleMsgMine
 
-serveSelf :: ProcessId -> Chain -> (ProcessId -> Process ()) -> Process ()
-serveSelf sourcePid chain work = do
-  self <- getSelfPid
-  if sourcePid == self
-    then work self
-    else loop chain
+handleMsgNewTrx :: Integer -> State -> Process ()
+handleMsgNewTrx x state = do
+  say $ show x
+  loop state
 
-serveOther :: ProcessId -> Chain -> (ProcessId -> Process ()) -> Process ()
-serveOther sourcePid chain work = do
-  self <- getSelfPid
-  if sourcePid /= self
-    then work self
-    else loop chain
+handleMsgEchoMsg :: String -> State -> Process ()
+handleMsgEchoMsg x state = do
+  say x
+  loop state
+
+handleMsgMine :: State -> Process ()
+handleMsgMine state = do
+  let chain = stateChain state
+  let self = stateSelfPid state
+  send
+    self
+    Msg {msgData = Mine, msgSender = self, msgSenderUuid = Just $ stateUuid state}
+  unixTime <- liftIO $ round <$> getPOSIXTime
+  case mineChain unixTime chain of
+    Left newChain -> do
+      liftIO . putStrLn $ "new nonce = " <> show (chainNonce newChain)
+      loop state {stateChain = newChain}
+    Right newBlock -> do
+      liftIO . putStrLn $ "new block = " <> unpack (Hex.encode $ blockHash newBlock)
+      let newChain = chain {chainBlocks = newBlock : chainBlocks chain}
+      loop state {stateChain = newChain}
+
+serveSelf :: ProcessId -> Maybe UUID -> State -> (State -> Process ()) -> Process ()
+serveSelf senderPid senderUuid state work = do
+  let senderUuidMatch = (== stateUuid state) <$> senderUuid
+  if senderPid == stateSelfPid state && (Just True == senderUuidMatch)
+    then work state
+    else loop state
+
+serveOther :: ProcessId -> Maybe UUID -> State -> (State -> Process ()) -> Process ()
+serveOther senderPid _ state work =
+  if senderPid /= stateSelfPid state
+    then work state
+    else loop state
 
 data NodeApi = NodeApi
   { broadcastTrx :: Integer -> IO (Maybe Integer)
@@ -111,7 +126,11 @@ mkNodeApi node processId =
       (setter, getter) <- mkSetterGetter
       runProcess
         node
-        (processFun it setter (\x -> Msg {msgData = mapper x, msgSource = processId}))
+        (processFun
+           it
+           setter
+           (\x ->
+              Msg {msgData = mapper x, msgSender = processId, msgSenderUuid = Nothing}))
       getter
 
 type Setter a = a -> IO ()
