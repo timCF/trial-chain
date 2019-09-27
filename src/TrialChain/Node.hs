@@ -34,29 +34,42 @@ data MsgData
 
 instance Binary MsgData
 
-data Msg = Msg
-  { msgSender :: ProcessId
-  , msgData :: MsgData
+data MsgCommon = MsgCommon
+  { msgSenderPid :: ProcessId
   , msgSenderUuid :: Maybe UUID
+  } deriving (Generic)
+
+instance Binary MsgCommon
+
+data Msg = Msg
+  { msgCommon :: MsgCommon
+  , msgData :: MsgData
   } deriving (Generic)
 
 instance Binary Msg
 
 data State = State
-  { stateUuid :: UUID
+  { stateSelfPid :: ProcessId
+  , stateSelfUuid :: UUID
   , stateChain :: Chain
-  , stateSelfPid :: ProcessId
   }
 
 start :: PubKey -> Process ()
 start rewardDestination = do
   self <- getSelfPid
   uuid <- liftIO nextRandom
-  send self Msg {msgSender = self, msgData = Mine, msgSenderUuid = Just uuid}
+  let chain = mkChain rewardDestination
+  let state = State {stateSelfUuid = uuid, stateSelfPid = self, stateChain = chain}
+  sendMineMsg state
   register pidAlias self
-  loop
-    State
-      {stateUuid = uuid, stateSelfPid = self, stateChain = mkChain rewardDestination}
+  loop state
+
+sendMineMsg :: State -> Process ()
+sendMineMsg state = do
+  let self = stateSelfPid state
+  let uuid = stateSelfUuid state
+  let commonMsg = MsgCommon {msgSenderPid = self, msgSenderUuid = Just uuid}
+  send self Msg {msgCommon = commonMsg, msgData = Mine}
 
 pidAlias :: String
 pidAlias = "TrialChain.Node"
@@ -65,12 +78,12 @@ loop :: State -> Process ()
 loop state = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
-    handleMsg Msg {msgData = (NewTrx x), msgSender = senderPid} =
-      serveOther senderPid Nothing state (handleMsgNewTrx x)
-    handleMsg Msg {msgData = (EchoMsg x), msgSender = senderPid} =
-      serveOther senderPid Nothing state (handleMsgEchoMsg x)
-    handleMsg Msg {msgData = Mine, msgSender = senderPid, msgSenderUuid = senderUuid} =
-      serveSelf senderPid senderUuid state handleMsgMine
+    handleMsg Msg {msgData = (NewTrx x), msgCommon = commonMsg} =
+      serveOther commonMsg state (handleMsgNewTrx x)
+    handleMsg Msg {msgData = (EchoMsg x), msgCommon = commonMsg} =
+      serveOther commonMsg state (handleMsgEchoMsg x)
+    handleMsg Msg {msgData = Mine, msgCommon = commonMsg} =
+      serveSelf commonMsg state handleMsgMine
 
 handleMsgNewTrx :: Integer -> State -> Process ()
 handleMsgNewTrx x state = do
@@ -84,11 +97,8 @@ handleMsgEchoMsg x state = do
 
 handleMsgMine :: State -> Process ()
 handleMsgMine state = do
+  sendMineMsg state
   let chain = stateChain state
-  let self = stateSelfPid state
-  send
-    self
-    Msg {msgData = Mine, msgSender = self, msgSenderUuid = Just $ stateUuid state}
   unixTime <- liftIO $ round <$> getPOSIXTime
   case mineChain unixTime chain of
     Left newChain -> do
@@ -99,16 +109,16 @@ handleMsgMine state = do
       let newChain = chain {chainBlocks = newBlock : chainBlocks chain}
       loop state {stateChain = newChain}
 
-serveSelf :: ProcessId -> Maybe UUID -> State -> (State -> Process ()) -> Process ()
-serveSelf senderPid senderUuid state work = do
-  let senderUuidMatch = (== stateUuid state) <$> senderUuid
-  if senderPid == stateSelfPid state && (Just True == senderUuidMatch)
+serveSelf :: MsgCommon -> State -> (State -> Process ()) -> Process ()
+serveSelf commonMsg state work = do
+  let senderUuidMatch = (== stateSelfUuid state) <$> msgSenderUuid commonMsg
+  if stateSelfPid state == msgSenderPid commonMsg && (Just True == senderUuidMatch)
     then work state
     else loop state
 
-serveOther :: ProcessId -> Maybe UUID -> State -> (State -> Process ()) -> Process ()
-serveOther senderPid _ state work =
-  if senderPid /= stateSelfPid state
+serveOther :: MsgCommon -> State -> (State -> Process ()) -> Process ()
+serveOther commonMsg state work =
+  if stateSelfPid state /= msgSenderPid commonMsg
     then work state
     else loop state
 
@@ -130,7 +140,11 @@ mkNodeApi node processId =
            it
            setter
            (\x ->
-              Msg {msgData = mapper x, msgSender = processId, msgSenderUuid = Nothing}))
+              Msg
+                { msgData = mapper x
+                , msgCommon =
+                    MsgCommon {msgSenderPid = processId, msgSenderUuid = Nothing}
+                }))
       getter
 
 type Setter a = a -> IO ()
