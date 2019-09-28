@@ -17,6 +17,7 @@ import Crypto.Secp256k1 hiding (Msg)
 import Data.Binary (Binary)
 import qualified Data.ByteString.Base16 as Hex
 import Data.ByteString.Char8 hiding (putStrLn)
+import Data.Maybe
 import Data.Monoid
 import Data.Time.Clock.POSIX
 import Data.UUID
@@ -112,7 +113,7 @@ handleMsgMine state = do
 serveSelf :: MsgCommon -> State -> (State -> Process ()) -> Process ()
 serveSelf commonMsg state work = do
   let senderUuidMatch = (== stateSelfUuid state) <$> msgSenderUuid commonMsg
-  if stateSelfPid state == msgSenderPid commonMsg && (Just True == senderUuidMatch)
+  if stateSelfPid state == msgSenderPid commonMsg && fromMaybe False senderUuidMatch
     then work state
     else loop state
 
