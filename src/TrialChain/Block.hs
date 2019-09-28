@@ -1,9 +1,13 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module TrialChain.Block where
 
 import Crypto.Hash.SHA256
+import Data.Binary (Binary)
 import Data.ByteString (replicate)
 import Data.ByteString.Char8 hiding (replicate)
 import Data.Monoid
+import GHC.Generics (Generic)
 import Prelude hiding (replicate)
 import TrialChain.Trx
 
@@ -14,12 +18,18 @@ data CommonBlock =
     , blockTrxs :: [Trx]
     , blockNonce :: Integer
     }
+  deriving (Generic)
+
+instance Binary CommonBlock
 
 data Block =
   Block
     { blockCommon :: CommonBlock
     , blockHash :: ByteString
     }
+  deriving (Generic)
+
+instance Binary Block
 
 mineBlock :: Integer -> CommonBlock -> Either CommonBlock Block
 mineBlock difficulty commonBlock = work oldNonce

@@ -42,7 +42,7 @@ mineChain unixTime chain =
     rewardTrx =
       mkRewardTrx
         CommonTrx
-          { commonTrxDestination = chainRewardDestination chain
+          { commonTrxDestination = exportPubKey True $ chainRewardDestination chain
           , commonTrxAmount = chainRewardAmount chain
           , commonTrxUnixTime = unixTime
           }

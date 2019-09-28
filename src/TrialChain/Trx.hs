@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module TrialChain.Trx
   ( mkP2PTrx
   , mkRewardTrx
@@ -8,29 +10,37 @@ module TrialChain.Trx
 
 import Crypto.Hash.SHA256
 import Crypto.Secp256k1
+import Data.Binary (Binary)
 import Data.ByteString.Char8
 import Data.Maybe
 import Data.Monoid
+import GHC.Generics (Generic)
 import Prelude
 
 data CommonTrx =
   CommonTrx
-    { commonTrxDestination :: PubKey
+    { commonTrxDestination :: ByteString
     , commonTrxAmount :: Integer
     , commonTrxUnixTime :: Integer
     }
+  deriving (Generic)
+
+instance Binary CommonTrx
 
 data Trx
   = P2PTrx
       { p2pTrxCommon :: CommonTrx
-      , p2pTrxSource :: PubKey
-      , p2pTrxHash :: Msg
-      , p2pTrxSignature :: Sig
+      , p2pTrxSource :: ByteString
+      , p2pTrxHash :: ByteString
+      , p2pTrxSignature :: ByteString
       }
   | RewardTrx
       { rewardTrxCommon :: CommonTrx
       , rewardTrxHash :: ByteString
       }
+  deriving (Generic)
+
+instance Binary Trx
 
 mkP2PTrx :: CommonTrx -> PubKey -> SecKey -> Maybe Trx
 mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
@@ -39,14 +49,14 @@ mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
     builder justHash =
       P2PTrx
         { p2pTrxCommon = commonTrx
-        , p2pTrxSource = sourcePubKey
-        , p2pTrxHash = justHash
-        , p2pTrxSignature = signMsg sourceSecKey justHash
+        , p2pTrxSource = exportPubKey True sourcePubKey
+        , p2pTrxHash = getMsg justHash
+        , p2pTrxSignature = exportSig $ signMsg sourceSecKey justHash
         }
     maybeHash :: Maybe Msg
     maybeHash =
       msg . hash . mconcat $
-      [ exportPubKey True (commonTrxDestination commonTrx)
+      [ commonTrxDestination commonTrx
       , pack $ show (commonTrxAmount commonTrx)
       , pack $ show (commonTrxUnixTime commonTrx)
       , exportPubKey True sourcePubKey
@@ -59,11 +69,11 @@ mkRewardTrx commonTrx =
     justHash :: ByteString
     justHash =
       hash . mconcat $
-      [ exportPubKey True (commonTrxDestination commonTrx)
+      [ commonTrxDestination commonTrx
       , pack $ show (commonTrxAmount commonTrx)
       , pack $ show (commonTrxUnixTime commonTrx)
       ]
 
 getTrxHash :: Trx -> ByteString
-getTrxHash P2PTrx {p2pTrxHash = x} = getMsg x
+getTrxHash P2PTrx {p2pTrxHash = x} = x
 getTrxHash RewardTrx {rewardTrxHash = x} = x
