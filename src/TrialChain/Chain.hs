@@ -6,14 +6,15 @@ import Prelude
 import TrialChain.Block
 import TrialChain.Trx
 
-data Chain = Chain
-  { chainBlocks :: [Block]
-  , chainDifficulty :: Integer
-  , chainPendingTrxs :: [Trx]
-  , chainRewardAmount :: Integer
-  , chainRewardDestination :: PubKey
-  , chainNonce :: Integer
-  }
+data Chain =
+  Chain
+    { chainBlocks :: [Block]
+    , chainDifficulty :: Integer
+    , chainPendingTrxs :: [Trx]
+    , chainRewardAmount :: Integer
+    , chainRewardDestination :: PubKey
+    , chainNonce :: Integer
+    }
 
 mkChain :: PubKey -> Chain
 mkChain rewardDestination =

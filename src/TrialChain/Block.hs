@@ -7,17 +7,19 @@ import Data.Monoid
 import Prelude hiding (replicate)
 import TrialChain.Trx
 
-data CommonBlock = CommonBlock
-  { blockPrevHash :: ByteString
-  , blockUnixTime :: Integer
-  , blockTrxs :: [Trx]
-  , blockNonce :: Integer
-  }
+data CommonBlock =
+  CommonBlock
+    { blockPrevHash :: ByteString
+    , blockUnixTime :: Integer
+    , blockTrxs :: [Trx]
+    , blockNonce :: Integer
+    }
 
-data Block = Block
-  { blockCommon :: CommonBlock
-  , blockHash :: ByteString
-  }
+data Block =
+  Block
+    { blockCommon :: CommonBlock
+    , blockHash :: ByteString
+    }
 
 mineBlock :: Integer -> CommonBlock -> Either CommonBlock Block
 mineBlock difficulty commonBlock = work oldNonce

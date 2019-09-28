@@ -35,25 +35,30 @@ data MsgData
 
 instance Binary MsgData
 
-data MsgCommon = MsgCommon
-  { msgSenderPid :: ProcessId
-  , msgSenderUuid :: Maybe UUID
-  } deriving (Generic)
+data MsgCommon =
+  MsgCommon
+    { msgSenderPid :: ProcessId
+    , msgSenderUuid :: Maybe UUID
+    }
+  deriving (Generic)
 
 instance Binary MsgCommon
 
-data Msg = Msg
-  { msgCommon :: MsgCommon
-  , msgData :: MsgData
-  } deriving (Generic)
+data Msg =
+  Msg
+    { msgCommon :: MsgCommon
+    , msgData :: MsgData
+    }
+  deriving (Generic)
 
 instance Binary Msg
 
-data State = State
-  { stateSelfPid :: ProcessId
-  , stateSelfUuid :: UUID
-  , stateChain :: Chain
-  }
+data State =
+  State
+    { stateSelfPid :: ProcessId
+    , stateSelfUuid :: UUID
+    , stateChain :: Chain
+    }
 
 start :: PubKey -> Process ()
 start rewardDestination = do
@@ -123,10 +128,11 @@ serveOther commonMsg state work =
     then work state
     else loop state
 
-data NodeApi = NodeApi
-  { broadcastTrx :: Integer -> IO (Maybe Integer)
-  , echoMsg :: String -> IO (Maybe String)
-  }
+data NodeApi =
+  NodeApi
+    { broadcastTrx :: Integer -> IO (Maybe Integer)
+    , echoMsg :: String -> IO (Maybe String)
+    }
 
 mkNodeApi :: LocalNode -> ProcessId -> NodeApi
 mkNodeApi node processId =

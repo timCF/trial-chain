@@ -19,13 +19,15 @@ import qualified TrialChain.JsonRpc as JsonRpc
 import qualified TrialChain.Node as Node
 import Web.Scotty
 
-data BootConfig = BootConfig
-  { webPort :: Int
-  , webHost :: String
-  , rewardAddress :: Maybe String
-  , nodePort :: Int
-  , knownNode :: [String]
-  } deriving (Show, Data)
+data BootConfig =
+  BootConfig
+    { webPort :: Int
+    , webHost :: String
+    , rewardAddress :: Maybe String
+    , nodePort :: Int
+    , knownNode :: [String]
+    }
+  deriving (Show, Data)
 
 main :: IO ()
 main = do

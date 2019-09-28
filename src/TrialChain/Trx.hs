@@ -13,19 +13,24 @@ import Data.Maybe
 import Data.Monoid
 import Prelude
 
-data CommonTrx = CommonTrx
-  { commonTrxDestination :: PubKey
-  , commonTrxAmount :: Integer
-  , commonTrxUnixTime :: Integer
-  }
+data CommonTrx =
+  CommonTrx
+    { commonTrxDestination :: PubKey
+    , commonTrxAmount :: Integer
+    , commonTrxUnixTime :: Integer
+    }
 
 data Trx
-  = P2PTrx { p2pTrxCommon :: CommonTrx
-           , p2pTrxSource :: PubKey
-           , p2pTrxHash :: Msg
-           , p2pTrxSignature :: Sig }
-  | RewardTrx { rewardTrxCommon :: CommonTrx
-              , rewardTrxHash :: ByteString }
+  = P2PTrx
+      { p2pTrxCommon :: CommonTrx
+      , p2pTrxSource :: PubKey
+      , p2pTrxHash :: Msg
+      , p2pTrxSignature :: Sig
+      }
+  | RewardTrx
+      { rewardTrxCommon :: CommonTrx
+      , rewardTrxHash :: ByteString
+      }
 
 mkP2PTrx :: CommonTrx -> PubKey -> SecKey -> Maybe Trx
 mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
