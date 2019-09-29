@@ -17,6 +17,7 @@ import Crypto.Secp256k1 hiding (Msg)
 import Data.Binary (Binary)
 import qualified Data.ByteString.Base16 as Hex
 import Data.ByteString.Char8 hiding (putStrLn)
+import Data.Coerce
 import Data.Maybe
 import Data.Monoid
 import Data.Time.Clock.POSIX
@@ -119,7 +120,8 @@ handleMsgMine state = do
       liftIO . putStrLn $ "new nonce = " <> show (chainNonce newChain)
       loop state {stateChain = newChain}
     Right newBlock -> do
-      liftIO . putStrLn $ "new block = " <> unpack (Hex.encode $ blockHash newBlock)
+      liftIO . putStrLn $
+        "new block = " <> unpack (Hex.encode . coerce $ blockHash newBlock)
       let newChain = chain {chainBlocks = newBlock : chainBlocks chain}
       loop state {stateChain = newChain}
 

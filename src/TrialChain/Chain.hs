@@ -1,7 +1,6 @@
 module TrialChain.Chain where
 
 import Crypto.Secp256k1
-import Data.ByteString hiding (length)
 import Prelude
 import TrialChain.Block
 import TrialChain.Misc
@@ -50,16 +49,17 @@ mineChain unixTime chain =
     Left failedBlock -> Left chain {chainNonce = blockNonce failedBlock}
     Right minedBlock -> Right minedBlock
   where
-    prevBlockHash :: ByteString
+    prevBlockHash :: BlockHash
     prevBlockHash =
       case chainBlocks chain of
-        [] -> mempty
+        [] -> BlockHash mempty
         (prevBlock:_) -> blockHash prevBlock
     rewardTrx :: Trx
     rewardTrx =
       mkRewardTrx
         CommonTrx
-          { commonTrxDestination = exportPubKey True $ chainRewardDestination chain
+          { commonTrxDestination =
+              Addr $ exportPubKey True $ chainRewardDestination chain
           , commonTrxAmount = chainRewardAmount chain
           , commonTrxUnixTime = unixTime
           }

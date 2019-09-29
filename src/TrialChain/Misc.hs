@@ -15,13 +15,13 @@ instance Binary Addr
 
 newtype BlockHash =
   BlockHash ByteString
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 instance Binary BlockHash
 
 newtype TrxHash =
   TrxHash ByteString
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 instance Binary TrxHash
 

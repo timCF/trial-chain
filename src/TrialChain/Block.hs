@@ -15,7 +15,7 @@ import TrialChain.Trx
 
 data CommonBlock =
   CommonBlock
-    { blockPrevHash :: ByteString
+    { blockPrevHash :: BlockHash
     , blockUnixTime :: UnixTime
     , blockTrxs :: [Trx]
     , blockNonce :: Integer
@@ -27,7 +27,7 @@ instance Binary CommonBlock
 data Block =
   Block
     { blockCommon :: CommonBlock
-    , blockHash :: ByteString
+    , blockHash :: BlockHash
     }
   deriving (Generic)
 
@@ -48,11 +48,11 @@ mineBlock difficulty commonBlock =
       where
         newCommonBlock :: CommonBlock
         newCommonBlock = commonBlock {blockNonce = thisNonce}
-        thisHash :: ByteString
+        thisHash :: BlockHash
         thisHash = mkBlockHash newCommonBlock
 
-isValidBlockHash :: Difficulty -> ByteString -> Bool
-isValidBlockHash difficulty thisHash = desiredPrefix `isPrefixOf` thisHash
+isValidBlockHash :: Difficulty -> BlockHash -> Bool
+isValidBlockHash difficulty thisHash = desiredPrefix `isPrefixOf` coerce thisHash
   where
     desiredPrefix :: ByteString
     desiredPrefix = replicate (fromInteger $ coerce difficulty) 0
@@ -61,12 +61,12 @@ isValidBlock :: Difficulty -> Block -> Bool
 isValidBlock difficulty Block {blockCommon = commonBlock, blockHash = thisHash} =
   isValidBlockHash difficulty thisHash && mkBlockHash commonBlock == thisHash
 
-mkBlockHash :: CommonBlock -> ByteString
+mkBlockHash :: CommonBlock -> BlockHash
 mkBlockHash commonBlock =
-  hash $
+  BlockHash . hash $
   mconcat
-    [ blockPrevHash commonBlock
+    [ coerce $ blockPrevHash commonBlock
     , pack $ show (coerce $ blockUnixTime commonBlock :: Integer)
-    , mconcat $ getTrxHash <$> blockTrxs commonBlock
+    , mconcat $ coerce . getTrxHash <$> blockTrxs commonBlock
     , pack $ show (blockNonce commonBlock)
     ]
