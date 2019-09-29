@@ -32,32 +32,39 @@ data Block =
 instance Binary Block
 
 mineBlock :: Integer -> CommonBlock -> Either CommonBlock Block
-mineBlock difficulty commonBlock = work oldNonce
+mineBlock difficulty commonBlock =
+  let nonce = blockNonce commonBlock
+   in work (nonce + 999999) nonce
   where
-    work :: Integer -> Either CommonBlock Block
-    work newNonce
-      | newNonce > nonceLimit = Left commonBlock {blockNonce = newNonce}
+    work :: Integer -> Integer -> Either CommonBlock Block
+    work limit thisNonce
+      | thisNonce > limit = Left newCommonBlock
       | otherwise =
-        if desiredPrefix `isPrefixOf` newHash
-          then Right
-                 Block
-                   { blockCommon = commonBlock {blockNonce = newNonce}
-                   , blockHash = newHash
-                   }
-          else work $ newNonce + 1
+        if isValidBlockHash difficulty thisHash
+          then Right Block {blockCommon = newCommonBlock, blockHash = thisHash}
+          else work limit (thisNonce + 1)
       where
-        newHash :: ByteString
-        newHash = hash $ pack (show newNonce) <> bytes2hash
-    oldNonce :: Integer
-    oldNonce = blockNonce commonBlock
-    nonceLimit :: Integer
-    nonceLimit = oldNonce + 999999
+        newCommonBlock :: CommonBlock
+        newCommonBlock = commonBlock {blockNonce = thisNonce}
+        thisHash :: ByteString
+        thisHash = mkBlockHash newCommonBlock
+
+isValidBlockHash :: Integer -> ByteString -> Bool
+isValidBlockHash difficulty thisHash = desiredPrefix `isPrefixOf` thisHash
+  where
     desiredPrefix :: ByteString
     desiredPrefix = replicate (fromInteger difficulty) 0
-    bytes2hash :: ByteString
-    bytes2hash =
-      mconcat
-        [ blockPrevHash commonBlock
-        , pack $ show (blockUnixTime commonBlock)
-        , mconcat $ getTrxHash <$> blockTrxs commonBlock
-        ]
+
+isValidBlock :: Integer -> Block -> Bool
+isValidBlock difficulty Block {blockCommon = commonBlock, blockHash = thisHash} =
+  isValidBlockHash difficulty thisHash && mkBlockHash commonBlock == thisHash
+
+mkBlockHash :: CommonBlock -> ByteString
+mkBlockHash commonBlock =
+  hash $
+  mconcat
+    [ blockPrevHash commonBlock
+    , pack $ show (blockUnixTime commonBlock)
+    , mconcat $ getTrxHash <$> blockTrxs commonBlock
+    , pack $ show (blockNonce commonBlock)
+    ]

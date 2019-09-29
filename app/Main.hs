@@ -62,7 +62,7 @@ main = do
         Nothing -> return ()
 
 --
---  NOTE function have side-effects not specified in type signature (error)
+--  NOTE : function have side-effects not specified in type signature (error)
 --  it's bad practice, but here in main function it's ok to call it in boot time
 --
 parseRewardAddress :: Maybe String -> PubKey

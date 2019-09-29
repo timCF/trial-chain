@@ -30,7 +30,8 @@ import TrialChain.Chain
 data MsgData
   = NewTrx Integer
   | EchoMsg String
-  | Mine
+  | MsgMine
+  | MsgIncomingBlocks [Block]
   deriving (Generic)
 
 instance Binary MsgData
@@ -75,7 +76,7 @@ sendMineMsg state = do
   let self = stateSelfPid state
   let uuid = stateSelfUuid state
   let commonMsg = MsgCommon {msgSenderPid = self, msgSenderUuid = Just uuid}
-  send self Msg {msgCommon = commonMsg, msgData = Mine}
+  send self Msg {msgCommon = commonMsg, msgData = MsgMine}
 
 pidAlias :: String
 pidAlias = "TrialChain.Node"
@@ -84,12 +85,18 @@ loop :: State -> Process ()
 loop state = receiveWait [match handleMsg]
   where
     handleMsg :: Msg -> Process ()
+    handleMsg Msg {msgData = MsgMine, msgCommon = commonMsg} =
+      serveSelf commonMsg state handleMsgMine
     handleMsg Msg {msgData = (NewTrx x), msgCommon = commonMsg} =
       serveOther commonMsg state (handleMsgNewTrx x)
     handleMsg Msg {msgData = (EchoMsg x), msgCommon = commonMsg} =
       serveOther commonMsg state (handleMsgEchoMsg x)
-    handleMsg Msg {msgData = Mine, msgCommon = commonMsg} =
-      serveSelf commonMsg state handleMsgMine
+    handleMsg Msg {msgData = MsgIncomingBlocks bs, msgCommon = commonMsg} =
+      serveOther commonMsg state (handleMsgIncomingBlocks bs)
+
+handleMsgIncomingBlocks :: [Block] -> State -> Process ()
+handleMsgIncomingBlocks blocks state =
+  loop state {stateChain = mergeChain blocks (stateChain state)}
 
 handleMsgNewTrx :: Integer -> State -> Process ()
 handleMsgNewTrx x state = do
