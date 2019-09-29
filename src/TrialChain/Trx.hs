@@ -4,6 +4,7 @@ module TrialChain.Trx
   ( mkP2PTrx
   , mkRewardTrx
   , getTrxHash
+  , isValidTrx
   , CommonTrx(..)
   , Trx
   ) where
@@ -43,7 +44,8 @@ data Trx
 instance Binary Trx
 
 mkP2PTrx :: CommonTrx -> PubKey -> SecKey -> Maybe Trx
-mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
+mkP2PTrx commonTrx sourcePubKey sourceSecKey =
+  builder <$> msg (mkP2PTrxHash commonTrx sourcePubKey)
   where
     builder :: Msg -> Trx
     builder justHash =
@@ -53,26 +55,47 @@ mkP2PTrx commonTrx sourcePubKey sourceSecKey = builder <$> maybeHash
         , p2pTrxHash = getMsg justHash
         , p2pTrxSignature = exportSig $ signMsg sourceSecKey justHash
         }
-    maybeHash :: Maybe Msg
-    maybeHash =
-      msg . hash . mconcat $
-      [ commonTrxDestination commonTrx
-      , pack $ show (commonTrxAmount commonTrx)
-      , pack $ show (commonTrxUnixTime commonTrx)
-      , exportPubKey True sourcePubKey
-      ]
+
+mkP2PTrxHash :: CommonTrx -> PubKey -> ByteString
+mkP2PTrxHash commonTrx sourcePubKey =
+  hash . mconcat $
+  [ commonTrxDestination commonTrx
+  , pack $ show (commonTrxAmount commonTrx)
+  , pack $ show (commonTrxUnixTime commonTrx)
+  , exportPubKey True sourcePubKey
+  ]
 
 mkRewardTrx :: CommonTrx -> Trx
 mkRewardTrx commonTrx =
-  RewardTrx {rewardTrxCommon = commonTrx, rewardTrxHash = justHash}
+  RewardTrx {rewardTrxCommon = commonTrx, rewardTrxHash = mkRewardTrxHash commonTrx}
+
+mkRewardTrxHash :: CommonTrx -> ByteString
+mkRewardTrxHash commonTrx =
+  hash . mconcat $
+  [ commonTrxDestination commonTrx
+  , pack $ show (commonTrxAmount commonTrx)
+  , pack $ show (commonTrxUnixTime commonTrx)
+  ]
+
+isValidTrx :: Trx -> Bool
+isValidTrx RewardTrx {rewardTrxCommon = commonTrx, rewardTrxHash = trxHash} =
+  mkRewardTrxHash commonTrx == trxHash
+isValidTrx P2PTrx { p2pTrxCommon = commonTrx
+                  , p2pTrxHash = trxHash
+                  , p2pTrxSource = trxSource
+                  , p2pTrxSignature = trxSignature
+                  } =
+  case keySigMsg of
+    Nothing -> False
+    Just (pubKey, sig, thisMsg) ->
+      trxHash == mkP2PTrxHash commonTrx pubKey && verifySig pubKey sig thisMsg
   where
-    justHash :: ByteString
-    justHash =
-      hash . mconcat $
-      [ commonTrxDestination commonTrx
-      , pack $ show (commonTrxAmount commonTrx)
-      , pack $ show (commonTrxUnixTime commonTrx)
-      ]
+    keySigMsg :: Maybe (PubKey, Sig, Msg)
+    keySigMsg = do
+      pubKey <- importPubKey trxSource
+      sig <- importSig trxSignature
+      thisMsg <- msg trxHash
+      return (pubKey, sig, thisMsg)
 
 getTrxHash :: Trx -> ByteString
 getTrxHash P2PTrx {p2pTrxHash = x} = x
