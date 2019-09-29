@@ -13,16 +13,18 @@ import Crypto.Hash.SHA256
 import Crypto.Secp256k1
 import Data.Binary (Binary)
 import Data.ByteString.Char8
+import Data.Coerce
 import Data.Maybe
 import Data.Monoid
 import GHC.Generics (Generic)
 import Prelude
+import TrialChain.Misc
 
 data CommonTrx =
   CommonTrx
     { commonTrxDestination :: ByteString
-    , commonTrxAmount :: Integer
-    , commonTrxUnixTime :: Integer
+    , commonTrxAmount :: Coins
+    , commonTrxUnixTime :: UnixTime
     }
   deriving (Generic)
 
@@ -60,8 +62,8 @@ mkP2PTrxHash :: CommonTrx -> PubKey -> ByteString
 mkP2PTrxHash commonTrx sourcePubKey =
   hash . mconcat $
   [ commonTrxDestination commonTrx
-  , pack $ show (commonTrxAmount commonTrx)
-  , pack $ show (commonTrxUnixTime commonTrx)
+  , pack $ show (coerce $ commonTrxAmount commonTrx :: Integer)
+  , pack $ show (coerce $ commonTrxUnixTime commonTrx :: Integer)
   , exportPubKey True sourcePubKey
   ]
 
@@ -73,8 +75,8 @@ mkRewardTrxHash :: CommonTrx -> ByteString
 mkRewardTrxHash commonTrx =
   hash . mconcat $
   [ commonTrxDestination commonTrx
-  , pack $ show (commonTrxAmount commonTrx)
-  , pack $ show (commonTrxUnixTime commonTrx)
+  , pack $ show (coerce $ commonTrxAmount commonTrx :: Integer)
+  , pack $ show (coerce $ commonTrxUnixTime commonTrx :: Integer)
   ]
 
 isValidTrx :: Trx -> Bool

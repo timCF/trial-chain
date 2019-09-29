@@ -6,15 +6,17 @@ import Crypto.Hash.SHA256
 import Data.Binary (Binary)
 import Data.ByteString (replicate)
 import Data.ByteString.Char8 hiding (replicate)
+import Data.Coerce
 import Data.Monoid
 import GHC.Generics (Generic)
 import Prelude hiding (replicate)
+import TrialChain.Misc
 import TrialChain.Trx
 
 data CommonBlock =
   CommonBlock
     { blockPrevHash :: ByteString
-    , blockUnixTime :: Integer
+    , blockUnixTime :: UnixTime
     , blockTrxs :: [Trx]
     , blockNonce :: Integer
     }
@@ -31,7 +33,7 @@ data Block =
 
 instance Binary Block
 
-mineBlock :: Integer -> CommonBlock -> Either CommonBlock Block
+mineBlock :: Difficulty -> CommonBlock -> Either CommonBlock Block
 mineBlock difficulty commonBlock =
   let nonce = blockNonce commonBlock
    in work (nonce + 999999) nonce
@@ -49,13 +51,13 @@ mineBlock difficulty commonBlock =
         thisHash :: ByteString
         thisHash = mkBlockHash newCommonBlock
 
-isValidBlockHash :: Integer -> ByteString -> Bool
+isValidBlockHash :: Difficulty -> ByteString -> Bool
 isValidBlockHash difficulty thisHash = desiredPrefix `isPrefixOf` thisHash
   where
     desiredPrefix :: ByteString
-    desiredPrefix = replicate (fromInteger difficulty) 0
+    desiredPrefix = replicate (fromInteger $ coerce difficulty) 0
 
-isValidBlock :: Integer -> Block -> Bool
+isValidBlock :: Difficulty -> Block -> Bool
 isValidBlock difficulty Block {blockCommon = commonBlock, blockHash = thisHash} =
   isValidBlockHash difficulty thisHash && mkBlockHash commonBlock == thisHash
 
@@ -64,7 +66,7 @@ mkBlockHash commonBlock =
   hash $
   mconcat
     [ blockPrevHash commonBlock
-    , pack $ show (blockUnixTime commonBlock)
+    , pack $ show (coerce $ blockUnixTime commonBlock :: Integer)
     , mconcat $ getTrxHash <$> blockTrxs commonBlock
     , pack $ show (blockNonce commonBlock)
     ]

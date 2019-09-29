@@ -26,6 +26,7 @@ import GHC.Generics (Generic)
 import Prelude
 import TrialChain.Block
 import TrialChain.Chain
+import TrialChain.Misc
 
 data MsgData
   = NewTrx Integer
@@ -112,7 +113,7 @@ handleMsgMine :: State -> Process ()
 handleMsgMine state = do
   sendMineMsg state
   let chain = stateChain state
-  unixTime <- liftIO $ round <$> getPOSIXTime
+  unixTime <- liftIO $ UnixTime . round <$> getPOSIXTime
   case mineChain unixTime chain of
     Left newChain -> do
       liftIO . putStrLn $ "new nonce = " <> show (chainNonce newChain)
