@@ -2,6 +2,7 @@
 
 module TrialChain.Block where
 
+import Control.Monad
 import Crypto.Hash.SHA256
 import Data.Binary (Binary)
 import Data.ByteString (replicate)
@@ -11,7 +12,7 @@ import Data.Monoid
 import GHC.Generics (Generic)
 import Prelude hiding (replicate)
 import TrialChain.Misc
-import TrialChain.Trx
+import TrialChain.Trx as Trx
 
 data CommonBlock =
   CommonBlock
@@ -51,15 +52,24 @@ mineBlock difficulty commonBlock =
         thisHash :: BlockHash
         thisHash = mkBlockHash newCommonBlock
 
+applyBalance :: Difficulty -> Block -> Balance -> Maybe Balance
+applyBalance difficulty block bs =
+  if isValidBlock difficulty block
+    then foldM Trx.applyBalance bs (blockTrxs $ blockCommon block)
+    else Nothing
+
+--
+--  TODO : check amount of RewardTrx + should be exactly one per block
+--
+isValidBlock :: Difficulty -> Block -> Bool
+isValidBlock difficulty Block {blockCommon = commonBlock, blockHash = thisHash} =
+  isValidBlockHash difficulty thisHash && mkBlockHash commonBlock == thisHash
+
 isValidBlockHash :: Difficulty -> BlockHash -> Bool
 isValidBlockHash difficulty thisHash = desiredPrefix `isPrefixOf` coerce thisHash
   where
     desiredPrefix :: ByteString
     desiredPrefix = replicate (fromInteger $ coerce difficulty) 0
-
-isValidBlock :: Difficulty -> Block -> Bool
-isValidBlock difficulty Block {blockCommon = commonBlock, blockHash = thisHash} =
-  isValidBlockHash difficulty thisHash && mkBlockHash commonBlock == thisHash
 
 mkBlockHash :: CommonBlock -> BlockHash
 mkBlockHash commonBlock =

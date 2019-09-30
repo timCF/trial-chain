@@ -4,7 +4,7 @@ module TrialChain.Trx
   ( mkP2PTrx
   , mkRewardTrx
   , getTrxHash
-  , isValidTrx
+  , applyBalance
   , CommonTrx(..)
   , Trx
   ) where
@@ -78,6 +78,21 @@ mkRewardTrxHash commonTrx =
   , pack $ show (coerce $ commonTrxAmount commonTrx :: Integer)
   , pack $ show (coerce $ commonTrxUnixTime commonTrx :: Integer)
   ]
+
+applyBalance :: Balance -> Trx -> Maybe Balance
+applyBalance bs trx =
+  if isValidTrx trx
+    then case trx of
+           RewardTrx {rewardTrxCommon = commonTrx} ->
+             Just $
+             addCoins (commonTrxDestination commonTrx) (commonTrxAmount commonTrx) bs
+           P2PTrx {p2pTrxCommon = commonTrx, p2pTrxSource = trxSource} ->
+             transferCoins
+               trxSource
+               (commonTrxDestination commonTrx)
+               (commonTrxAmount commonTrx)
+               bs
+    else Nothing
 
 isValidTrx :: Trx -> Bool
 isValidTrx RewardTrx {rewardTrxCommon = commonTrx, rewardTrxHash = trxHash} =
